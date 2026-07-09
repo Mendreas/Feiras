@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feiras &amp; Mercados de Portugal</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{
+  --toldo:#1F4D3A;        /* verde toldo escuro */
+  --toldo2:#2A6B4F;       /* verde toldo claro */
+  --laranja:#E8891C;      /* laranja de banca de citrinos */
+  --vermelho:#C43E2F;     /* vermelho de toldo */
+  --tinta:#21251F;
+  --papel:#F7F5EF;
+  --cartao:#FFFFFF;
+  --linha:#E2DED2;
+  --cinza:#6E6A5E;
+  --azul:#2F6690;
+  --roxo:#7B4B94;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Instrument Sans',system-ui,sans-serif;background:var(--papel);color:var(--tinta);display:flex;flex-direction:column;overflow:hidden}
+
+/* ---------- Cabeçalho com toldo ---------- */
+header{background:var(--toldo);color:#fff;padding:14px 20px 10px;position:relative;z-index:1200}
+.hd-top{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px}
+h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(20px,3vw,30px);letter-spacing:-.02em}
+h1 span{color:#F4C566}
+.hd-date{font-size:13px;opacity:.85}
+.hd-hoje{font-size:13px;margin-top:2px;color:#DDE8DF}
+.hd-hoje b{color:#F4C566}
+/* Sanefa do toldo: riscas + festão */
+.awning{height:14px;background:repeating-linear-gradient(90deg,var(--toldo2) 0 36px,#fff 36px 72px);position:relative}
+.awning::after{content:"";position:absolute;left:0;right:0;top:14px;height:10px;
+  background:radial-gradient(circle at 18px -4px, var(--toldo2) 0 17px, transparent 18px) 0 0/72px 12px repeat-x,
+             radial-gradient(circle at 54px -4px, #fff 0 17px, transparent 18px) 0 0/72px 12px repeat-x;
+  z-index:1100;pointer-events:none}
+
+/* ---------- Barra de filtros ---------- */
+.filters{background:var(--cartao);border-bottom:1px solid var(--linha);padding:18px 16px 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;z-index:900}
+.filters input[type=search]{flex:1 1 180px;min-width:150px;padding:8px 12px;border:1.5px solid var(--linha);border-radius:8px;font:inherit;font-size:14px;background:var(--papel)}
+.filters select{padding:8px 10px;border:1.5px solid var(--linha);border-radius:8px;font:inherit;font-size:14px;background:var(--papel);cursor:pointer}
+.filters input:focus,.filters select:focus{outline:2px solid var(--toldo2);outline-offset:1px}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{border:1.5px solid var(--linha);background:var(--papel);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;color:var(--cinza)}
+.chip:hover{border-color:var(--toldo2);color:var(--toldo)}
+.chip.on{background:var(--toldo);border-color:var(--toldo);color:#fff}
+.chip.hoje.on{background:var(--laranja);border-color:var(--laranja)}
+.btn{border:none;border-radius:8px;padding:9px 14px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.btn-add{background:var(--laranja);color:#fff}
+.btn-add:hover{background:#d07a12}
+.btn-ghost{background:transparent;color:var(--cinza);border:1.5px solid var(--linha)}
+.btn-ghost:hover{color:var(--toldo);border-color:var(--toldo2)}
+
+/* ---------- Layout principal ---------- */
+main{flex:1;display:flex;min-height:0}
+#lista{width:400px;max-width:45%;overflow-y:auto;border-right:1px solid var(--linha);background:var(--papel);padding:12px}
+#mapa{flex:1;min-height:200px}
+.count{font-size:12.5px;color:var(--cinza);margin:2px 4px 10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+
+/* ---------- Cartões ---------- */
+.card{background:var(--cartao);border:1px solid var(--linha);border-radius:10px;padding:12px 14px;margin-bottom:9px;cursor:pointer;position:relative;transition:border-color .12s}
+.card:hover{border-color:var(--toldo2)}
+.card.sel{border-color:var(--toldo);box-shadow:0 0 0 1.5px var(--toldo)}
+.card h3{font-family:'Bricolage Grotesque',sans-serif;font-size:16px;font-weight:700;padding-right:60px;line-height:1.25}
+.card .sub{font-size:13px;color:var(--cinza);margin-top:2px}
+.card .quando{font-size:13.5px;margin-top:6px;font-weight:600;color:var(--toldo)}
+.card .local{font-size:12.5px;color:var(--cinza);margin-top:3px}
+.card .notas{font-size:12.5px;color:var(--cinza);margin-top:4px;font-style:italic}
+.badge{position:absolute;top:12px;right:12px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.04em}
+.badge.hoje{background:var(--laranja);color:#fff}
+.badge.amanha{background:#F4C566;color:#5b430a}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.card .acts{margin-top:8px;display:flex;gap:6px}
+.card .acts button{font-size:12px;padding:4px 9px;border-radius:6px;border:1px solid var(--linha);background:var(--papel);cursor:pointer;color:var(--cinza)}
+.card .acts button:hover{color:var(--toldo);border-color:var(--toldo2)}
+.vazio{text-align:center;color:var(--cinza);padding:40px 20px;font-size:14px}
+.vazio b{display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:17px;color:var(--tinta);margin-bottom:6px}
+
+/* ---------- Popup Leaflet ---------- */
+.leaflet-popup-content{font-family:'Instrument Sans',sans-serif;font-size:13px}
+.leaflet-popup-content b{font-family:'Bricolage Grotesque',sans-serif;font-size:14.5px}
+
+/* ---------- Modal ---------- */
+.overlay{position:fixed;inset:0;background:rgba(20,30,24,.55);display:none;align-items:center;justify-content:center;z-index:2000;padding:16px}
+.overlay.open{display:flex}
+.modal{background:var(--cartao);border-radius:14px;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:22px}
+.modal h2{font-family:'Bricolage Grotesque',sans-serif;font-size:20px;margin-bottom:14px}
+.modal label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px;color:var(--cinza)}
+.modal input[type=text],.modal input[type=number],.modal select,.modal textarea{width:100%;padding:8px 10px;border:1.5px solid var(--linha);border-radius:8px;font:inherit;font-size:14px;background:var(--papel)}
+.modal textarea{resize:vertical;min-height:56px}
+.diaboxes{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.diaboxes label{display:flex;align-items:center;gap:4px;border:1.5px solid var(--linha);border-radius:8px;padding:6px 9px;margin:0;cursor:pointer;font-size:13px;color:var(--tinta)}
+.diaboxes input{accent-color:var(--toldo)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.hint{font-size:12px;color:var(--cinza);margin-top:4px}
+.pickbtn{margin-top:6px;font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px dashed var(--toldo2);background:transparent;color:var(--toldo);cursor:pointer;font-weight:600}
+.picking .pickbtn{background:var(--toldo);color:#fff;border-style:solid}
+
+/* ---------- Rodapé ---------- */
+footer{background:var(--cartao);border-top:1px solid var(--linha);padding:7px 16px;font-size:11.5px;color:var(--cinza);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+footer .leg{display:flex;gap:12px;flex-wrap:wrap}
+
+/* ---------- Mobile ---------- */
+.viewtabs{display:none}
+
+/* ---------- Abas principais (Lista&Mapa / Calendário) ---------- */
+.maintabs{display:flex;gap:0;background:var(--cartao);border-bottom:1px solid var(--linha)}
+.maintabs button{flex:1;max-width:220px;padding:10px 14px;font:inherit;font-size:14px;font-weight:700;border:none;background:transparent;color:var(--cinza);cursor:pointer;border-bottom:3px solid transparent;font-family:'Bricolage Grotesque',sans-serif}
+.maintabs button.on{color:var(--toldo);border-bottom-color:var(--laranja)}
+body.mode-calendario main{display:none}
+body.mode-calendario .viewtabs{display:none}
+body:not(.mode-calendario) #calendario{display:none}
+
+/* ---------- Calendário ---------- */
+#calendario{flex:1;overflow-y:auto;background:var(--papel);padding:16px 20px 30px}
+.cal-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.cal-titulo{font-family:'Bricolage Grotesque',sans-serif;font-size:19px;font-weight:800;flex:1;text-align:center;text-transform:capitalize}
+.cal-head .btn{padding:7px 12px}
+.cal-week,.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+.cal-week{margin-bottom:6px}
+.cal-week span{text-align:center;font-size:12px;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:.04em}
+.cal-day{background:var(--cartao);border:1.5px solid var(--linha);border-radius:9px;min-height:78px;padding:6px 6px;cursor:pointer;display:flex;flex-direction:column;gap:5px;transition:border-color .12s}
+.cal-day:hover{border-color:var(--toldo2)}
+.cal-day.out{opacity:.4}
+.cal-day.today{border-color:var(--laranja);border-width:2px}
+.cal-day.sel{box-shadow:0 0 0 2px var(--toldo) inset;border-color:var(--toldo)}
+.cal-num{font-size:13px;font-weight:700;color:var(--tinta)}
+.cal-day.today .cal-num{color:var(--laranja)}
+.cal-dots{display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+.cal-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cal-more{font-size:10.5px;font-weight:700;color:var(--cinza)}
+.cal-detalhe-head{font-family:'Bricolage Grotesque',sans-serif;font-size:17px;font-weight:700;margin:22px 0 10px;text-transform:capitalize}
+#calDetalhe .card{max-width:640px}
+@media (max-width:760px){
+  .cal-day{min-height:56px;padding:4px 4px;border-radius:7px}
+  .cal-num{font-size:11.5px}
+  .cal-dot{width:6px;height:6px}
+  #calendario{padding:12px 10px 24px}
+}
+
+@media (max-width:760px){
+  main{flex-direction:column}
+  #lista{width:100%;max-width:100%;border-right:none;flex:1}
+  #mapa{flex:1}
+  body.v-lista #mapa{display:none}
+  body.v-mapa #lista{display:none}
+  .viewtabs{display:flex;gap:0;background:var(--cartao);border-bottom:1px solid var(--linha)}
+  .viewtabs button{flex:1;padding:9px;font:inherit;font-size:14px;font-weight:600;border:none;background:transparent;color:var(--cinza);cursor:pointer;border-bottom:3px solid transparent}
+  .viewtabs button.on{color:var(--toldo);border-bottom-color:var(--laranja)}
+  footer{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body class="v-lista">
+
+<header>
+  <div class="hd-top">
+    <h1>Feiras <span>&amp;</span> Mercados de Portugal</h1>
+    <div class="hd-date" id="hdDate"></div>
+  </div>
+  <div class="hd-hoje" id="hdHoje"></div>
+</header>
+<div class="awning"></div>
+
+<div class="filters">
+  <input type="search" id="fBusca" placeholder="Procurar feira, concelho, local…">
+  <select id="fDistrito"><option value="">Todos os distritos</option></select>
+  <select id="fTipo">
+    <option value="">Todos os tipos</option>
+    <option value="semanal">Feira semanal</option>
+    <option value="mensal">Feira / mercado mensal</option>
+    <option value="diario">Mercado diário</option>
+    <option value="velharias">Antiguidades &amp; velharias</option>
+    <option value="anual">Feira anual</option>
+  </select>
+  <div class="chips" id="chipsQuando">
+    <button class="chip hoje" data-q="hoje">Hoje</button>
+    <button class="chip" data-q="amanha">Amanhã</button>
+    <button class="chip" data-q="fds">Fim de semana</button>
+  </div>
+  <div class="chips" id="chipsDias">
+    <button class="chip" data-d="1">Seg</button><button class="chip" data-d="2">Ter</button>
+    <button class="chip" data-d="3">Qua</button><button class="chip" data-d="4">Qui</button>
+    <button class="chip" data-d="5">Sex</button><button class="chip" data-d="6">Sáb</button>
+    <button class="chip" data-d="0">Dom</button>
+  </div>
+  <button class="btn btn-add" id="btnAdd">+ Adicionar</button>
+  <button class="btn btn-ghost" id="btnLimpar">Limpar filtros</button>
+</div>
+
+<div class="maintabs">
+  <button id="tabFeiras" class="on">📋 Lista &amp; Mapa</button>
+  <button id="tabCal">🗓️ Calendário</button>
+</div>
+
+<div class="viewtabs">
+  <button id="tabLista" class="on">Lista</button>
+  <button id="tabMapa">Mapa</button>
+</div>
+
+<main>
+  <div id="lista">
+    <div class="count" id="contagem"></div>
+    <div id="cards"></div>
+  </div>
+  <div id="mapa"></div>
+</main>
+
+<div id="calendario">
+  <div class="cal-head">
+    <button class="btn btn-ghost" id="calPrev">‹</button>
+    <div class="cal-titulo" id="calTitulo"></div>
+    <button class="btn btn-ghost" id="calNext">›</button>
+    <button class="btn btn-ghost" id="calHoje">Hoje</button>
+  </div>
+  <div class="cal-week">
+    <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+  <div id="calDetalhe"></div>
+</div>
+
+<footer>
+  <div class="leg">
+    <span><span class="dot" style="background:#2A6B4F"></span>Semanal</span>
+    <span><span class="dot" style="background:#E8891C"></span>Mensal</span>
+    <span><span class="dot" style="background:#2F6690"></span>Diário</span>
+    <span><span class="dot" style="background:#7B4B94"></span>Velharias</span>
+    <span><span class="dot" style="background:#8a8674"></span>Anual</span>
+  </div>
+  <div>Confirme sempre os dias junto do município — as datas podem mudar. Use “+ Adicionar” para completar a lista.</div>
+</footer>
+
+<!-- Modal adicionar/editar -->
+<div class="overlay" id="ovForm">
+  <div class="modal">
+    <h2 id="mTitulo">Adicionar feira ou mercado</h2>
+    <label>Nome *</label><input type="text" id="mNome" placeholder="Ex.: Feira de …">
+    <div class="row2">
+      <div><label>Concelho *</label><input type="text" id="mConcelho"></div>
+      <div><label>Distrito / Região *</label><select id="mDistrito"></select></div>
+    </div>
+    <div class="row2">
+      <div><label>Tipo</label>
+        <select id="mTipo">
+          <option value="semanal">Feira semanal</option>
+          <option value="mensal">Feira / mercado mensal</option>
+          <option value="diario">Mercado diário</option>
+          <option value="velharias">Antiguidades &amp; velharias</option>
+          <option value="anual">Feira anual</option>
+        </select>
+      </div>
+      <div><label>Periodicidade</label>
+        <select id="mFreq">
+          <option value="semanal">Semanal (dias da semana)</option>
+          <option value="quinzenal">Quinzenal (dia da semana)</option>
+          <option value="mensal-ordinal">Mensal (ex.: 1.º domingo)</option>
+          <option value="mensal-data">Mensal (dia fixo do mês)</option>
+          <option value="diario">Diário</option>
+          <option value="anual">Anual</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="gDias">
+      <label>Dias da semana</label>
+      <div class="diaboxes" id="mDias">
+        <label><input type="checkbox" value="1">Seg</label><label><input type="checkbox" value="2">Ter</label>
+        <label><input type="checkbox" value="3">Qua</label><label><input type="checkbox" value="4">Qui</label>
+        <label><input type="checkbox" value="5">Sex</label><label><input type="checkbox" value="6">Sáb</label>
+        <label><input type="checkbox" value="0">Dom</label>
+      </div>
+    </div>
+    <div id="gOrdinal" style="display:none">
+      <div class="row2">
+        <div><label>Ocorrência(s)</label>
+          <div class="diaboxes" id="mOrdinais">
+            <label><input type="checkbox" value="1">1.º</label><label><input type="checkbox" value="2">2.º</label>
+            <label><input type="checkbox" value="3">3.º</label><label><input type="checkbox" value="4">4.º</label>
+            <label><input type="checkbox" value="-1">Último</label>
+          </div>
+        </div>
+        <div><label>Dia da semana</label>
+          <select id="mOrdDia">
+            <option value="0">Domingo</option><option value="1">Segunda</option><option value="2">Terça</option>
+            <option value="3">Quarta</option><option value="4">Quinta</option><option value="5">Sexta</option>
+            <option value="6">Sábado</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="gDatas" style="display:none">
+      <label>Dia(s) do mês (separados por vírgula)</label>
+      <input type="text" id="mDatas" placeholder="Ex.: 10, 20">
+    </div>
+    <div id="gMes" style="display:none">
+      <label>Mês / época</label>
+      <input type="text" id="mMes" placeholder="Ex.: Novembro">
+    </div>
+
+    <label>Local (rua, praça…)</label><input type="text" id="mLocal">
+    <label>Notas</label><textarea id="mNotas" placeholder="Horário, produtos, estacionamento…"></textarea>
+
+    <label>Localização no mapa</label>
+    <div class="row2">
+      <div><input type="number" id="mLat" step="any" placeholder="Latitude"></div>
+      <div><input type="number" id="mLng" step="any" placeholder="Longitude"></div>
+    </div>
+    <button class="pickbtn" id="btnPick">📍 Escolher no mapa (clique no mapa)</button>
+    <div class="hint">Se deixar vazio, a feira aparece na lista mas não no mapa.</div>
+
+    <div class="foot">
+      <button class="btn btn-ghost" id="mCancel">Cancelar</button>
+      <button class="btn btn-add" id="mSave">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   DADOS BASE — feiras e mercados conhecidos (aprox. 80)
+   freq: semanal {dias:[0-6]} | quinzenal {dias} | mensal-ordinal {ordinais,dia}
+         mensal-data {datas} | diario | anual {mes}
+   0=Domingo … 6=Sábado
+============================================================ */
+const BASE = [
+// ---- Viana do Castelo ----
+{n:"Feira de Viana do Castelo",c:"Viana do Castelo",d:"Viana do Castelo",t:"semanal",f:{freq:"semanal",dias:[5]},l:"Campo do Castelo",lat:41.694,lng:-8.831},
+{n:"Feira de Ponte de Lima",c:"Ponte de Lima",d:"Viana do Castelo",t:"semanal",f:{freq:"quinzenal",dias:[1]},l:"Margem do rio Lima",nt:"Quinzenal — a mais antiga feira documentada de Portugal (1125).",lat:41.767,lng:-8.583},
+{n:"Feira de Antiguidades de Ponte de Lima",c:"Ponte de Lima",d:"Viana do Castelo",t:"velharias",f:{freq:"mensal-ordinal",ordinais:[2],dia:0},l:"Margem do rio Lima",lat:41.766,lng:-8.585},
+{n:"Feira de Valença",c:"Valença",d:"Viana do Castelo",t:"semanal",f:{freq:"semanal",dias:[3]},l:"Junto à fortaleza",lat:42.030,lng:-8.645},
+{n:"Feira de Antiguidades e Velharias de Valença",c:"Valença",d:"Viana do Castelo",t:"velharias",f:{freq:"mensal-ordinal",ordinais:[1],dia:0},l:"R. Dr. Ibérico Nogueira",lat:42.031,lng:-8.643},
+{n:"Feira de Caminha",c:"Caminha",d:"Viana do Castelo",t:"semanal",f:{freq:"semanal",dias:[3]},l:"Centro da vila",lat:41.875,lng:-8.837},
+{n:"Feira de Velharias de Caminha",c:"Caminha",d:"Viana do Castelo",t:"velharias",f:{freq:"mensal-ordinal",ordinais:[3],dia:0},l:"Parque 25 de Abril",lat:41.876,lng:-8.836},
+{n:"Feira de Vila Praia de Âncora",c:"Caminha",d:"Viana do Castelo",t:"semanal",f:{freq:"semanal",dias:[4]},l:"Vila Praia de Âncora",lat:41.813,lng:-8.855},
+{n:"Feira de Arcos de Valdevez",c:"Arcos de Valdevez",d:"Viana do Castelo",t:"semanal",f:{freq:"semanal",dias:[3]},l:"Centro da vila",lat:41.847,lng:-8.419},
+{n:"Feira de Vila Nova de Cerveira",c:"Vila Nova de Cerveira",d:"Viana do Castelo",t:"semanal",f:{freq:"semanal",dias:[6]},l:"Centro da vila",lat:41.940,lng:-8.744},
+{n:"Feira de Artes e Velharias de Cerveira",c:"Vila Nova de Cerveira",d:"Viana do Castelo",t:"velharias",f:{freq:"mensal-ordinal",ordinais:[2],dia:0},l:"Praça da Galiza",lat:41.941,lng:-8.743},
+// ---- Braga ----
+{n:"Feira de Barcelos",c:"Barcelos",d:"Braga",t:"semanal",f:{freq:"semanal",dias:[4]},l:"Campo da República",nt:"A mais emblemática feira semanal do país — louça, galos de Barcelos, produtos da terra.",lat:41.531,lng:-8.615},
+{n:"Feira de Velharias e Colecionismo de Barcelos",c:"Barcelos",d:"Braga",t:"velharias",f:{freq:"mensal-ordinal",ordinais:[4],dia:0},l:"Campo da República",lat:41.532,lng:-8.616},
+{n:"Feira Semanal de Braga",c:"Braga",d:"Braga",t:"semanal",f:{freq:"semanal",dias:[2]},l:"Parque de Exposições (PEB)",lat:41.545,lng:-8.426},
+{n:"Feira de Vila Nova de Famalicão",c:"V. N. de Famalicão",d:"Braga",t:"semanal",f:{freq:"semanal",dias:[3]},l:"Centro da cidade",lat:41.408,lng:-8.520},
+{n:"Feira de Guimarães",c:"Guimarães",d:"Braga",t:"semanal",f:{freq:"semanal",dias:[5]},l:"Junto ao mercado municipal",lat:41.442,lng:-8.296},
+// ---- Porto ----
+{n:"Mercado do Bolhão",c:"Porto",d:"Porto",t:"diario",f:{freq:"diario"},l:"R. Formosa, Porto",nt:"Segunda a sábado. O mercado histórico do Porto, renovado.",lat:41.149,lng:-8.606},
+{n:"Feira da Vandoma",c:"Porto",d:"Porto",t:"velharias",f:{freq:"semanal",dias:[6]},l:"Av. 25 de Abril, junto a Campanhã",nt:"Manhãs de sábado — velharias, discos, livros.",lat:41.150,lng:-8.585},
+{n:"Feira dos Pássaros",c:"Porto",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[0]},l:"Alameda das Fontainhas",lat:41.141,lng:-8.598},
+{n:"Feira de Espinho",c:"Espinho",d:"Aveiro",t:"semanal",f:{freq:"semanal",dias:[1]},l:"Largo da Feira (R. 31 / R. 22)",nt:"Uma das maiores feiras semanais do país.",lat:41.007,lng:-8.641},
+{n:"Feira da Póvoa de Varzim",c:"Póvoa de Varzim",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[1]},l:"Centro da cidade",lat:41.383,lng:-8.764},
+{n:"Feira de Santo Tirso",c:"Santo Tirso",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[1]},l:"Centro da cidade",lat:41.342,lng:-8.477},
+{n:"Feira de Felgueiras",c:"Felgueiras",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[1]},l:"Centro da cidade",lat:41.365,lng:-8.198},
+{n:"Feira de Vila do Conde",c:"Vila do Conde",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[5]},l:"Largo do Mercado Municipal",lat:41.353,lng:-8.744},
+{n:"Feira e Mercado de Amarante",c:"Amarante",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[3,6]},l:"R. Capitão Augusto Casimiro",lat:41.271,lng:-8.079},
+{n:"Feira dos Carvalhos",c:"V. N. de Gaia",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[3]},l:"R. da Feira Nova, Pedroso",lat:41.077,lng:-8.575},
+{n:"Feira de Custóias",c:"Matosinhos",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[6]},l:"Praça Manuel Teixeira Gomes",nt:"Sábados à tarde — a maior feira do concelho de Matosinhos.",lat:41.202,lng:-8.644},
+{n:"Feira da Senhora da Hora",c:"Matosinhos",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[6]},l:"Senhora da Hora",nt:"Sábados de manhã.",lat:41.186,lng:-8.651},
+{n:"Feira da Maia",c:"Maia",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[6]},l:"Centro da cidade",lat:41.235,lng:-8.621},
+{n:"Feira da Trofa",c:"Trofa",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[6]},l:"Centro da cidade",lat:41.337,lng:-8.560},
+{n:"Feira de Valongo",c:"Valongo",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[6]},l:"Av. Emídio Navarro",lat:41.188,lng:-8.498},
+{n:"Feira de Ermesinde",c:"Valongo",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[1,5]},l:"Junto ao Mercado Municipal",lat:41.216,lng:-8.553},
+{n:"Feira de Rio Tinto",c:"Gondomar",d:"Porto",t:"semanal",f:{freq:"semanal",dias:[6]},l:"Rio Tinto",lat:41.178,lng:-8.560},
+{n:"Feira de Penafiel",c:"Penafiel",d:"Porto",t:"mensal",f:{freq:"mensal-data",datas:[10,20]},l:"Centro da cidade",lat:41.207,lng:-8.282},
+{n:"Feira de Marco de Canaveses",c:"Marco de Canaveses",d:"Porto",t:"mensal",f:{freq:"mensal-data",datas:[3,15]},l:"Centro da cidade",lat:41.184,lng:-8.148},
+{n:"Feira de Lousada",c:"Lousada",d:"Porto",t:"mensal",f:{freq:"mensal-data",datas:[9]},l:"Centro da vila",lat:41.277,lng:-8.283},
+{n:"Feira de Freamunde",c:"Paços de Ferreira",d:"Porto",t:"mensal",f:{freq:"mensal-data",datas:[13]},l:"Freamunde",lat:41.288,lng:-8.343},
+// ---- Vila Real / Bragança ----
+{n:"Feira de Chaves",c:"Chaves",d:"Vila Real",t:"semanal",f:{freq:"semanal",dias:[3]},l:"Expoflávia",lat:41.740,lng:-7.469},
+{n:"Feira de Bragança",c:"Bragança",d:"Bragança",t:"mensal",f:{freq:"mensal-data",datas:[3,12,21]},l:"Mercado municipal / recinto da feira",nt:"Feira tradicional aos dias 3, 12 e 21 de cada mês.",lat:41.806,lng:-6.757},
+// ---- Aveiro / Viseu / Coimbra ----
+{n:"Feira dos 28 (Aveiro)",c:"Aveiro",d:"Aveiro",t:"mensal",f:{freq:"mensal-data",datas:[28]},l:"Parque de Feiras e Exposições",nt:"Realiza-se ao dia 28 de cada mês.",lat:40.641,lng:-8.654},
+{n:"Feira Semanal de Viseu",c:"Viseu",d:"Viseu",t:"semanal",f:{freq:"semanal",dias:[2]},l:"Campo de viação / recinto da feira",lat:40.657,lng:-7.914},
+{n:"Feira de São Mateus",c:"Viseu",d:"Viseu",t:"anual",f:{freq:"anual",mes:"Agosto – Setembro"},l:"Campo da Feira de São Mateus",nt:"Uma das feiras francas mais antigas da Península (desde 1392).",lat:40.660,lng:-7.906},
+{n:"Feira dos 7 e 23 (Coimbra)",c:"Coimbra",d:"Coimbra",t:"mensal",f:{freq:"mensal-data",datas:[7,23]},l:"Recinto da feira, junto ao Estádio",lat:40.211,lng:-8.429},
+// ---- Leiria / Santarém / Castelo Branco ----
+{n:"Feira Semanal de Leiria",c:"Leiria",d:"Leiria",t:"semanal",f:{freq:"semanal",dias:[2,6]},l:"Recinto da feira (Marrazes)",lat:39.744,lng:-8.807},
+{n:"Praça da Fruta (Caldas da Rainha)",c:"Caldas da Rainha",d:"Leiria",t:"diario",f:{freq:"diario"},l:"Praça da República",nt:"Mercado diário de fruta e hortícolas — todas as manhãs, há mais de um século.",lat:39.403,lng:-9.138},
+{n:"Feira Semanal de Tomar",c:"Tomar",d:"Santarém",t:"semanal",f:{freq:"semanal",dias:[5]},l:"Junto ao mercado municipal",lat:39.604,lng:-8.410},
+{n:"Feira Nacional do Cavalo",c:"Golegã",d:"Santarém",t:"anual",f:{freq:"anual",mes:"Novembro"},l:"Largo do Arneiro, Golegã",nt:"Coincide com o São Martinho.",lat:39.401,lng:-8.485},
+// ---- Lisboa ----
+{n:"Feira da Ladra",c:"Lisboa",d:"Lisboa",t:"velharias",f:{freq:"semanal",dias:[2,6]},l:"Campo de Santa Clara",nt:"A histórica feira de velharias de Lisboa, junto ao Panteão Nacional.",lat:38.716,lng:-9.125},
+{n:"Feira do Relógio",c:"Lisboa",d:"Lisboa",t:"semanal",f:{freq:"semanal",dias:[0]},l:"R. Luís Cristino da Silva (Marvila)",nt:"A maior feira semanal de Lisboa.",lat:38.757,lng:-9.113},
+{n:"Mercado da Ribeira (Time Out Market)",c:"Lisboa",d:"Lisboa",t:"diario",f:{freq:"diario"},l:"Av. 24 de Julho, Cais do Sodré",lat:38.707,lng:-9.146},
+{n:"Mercado de Campo de Ourique",c:"Lisboa",d:"Lisboa",t:"diario",f:{freq:"diario"},l:"R. Coelho da Rocha",lat:38.716,lng:-9.166},
+{n:"Feira de Carcavelos",c:"Cascais",d:"Lisboa",t:"semanal",f:{freq:"semanal",dias:[4,6]},l:"R. das Palmeiras, Carcavelos",nt:"Famosa pelas roupas e têxteis a bom preço.",lat:38.685,lng:-9.336},
+{n:"Feira de Antiguidades de Cascais",c:"Cascais",d:"Lisboa",t:"velharias",f:{freq:"semanal",dias:[3]},l:"Jardim Visconde da Luz",lat:38.698,lng:-9.421},
+{n:"Feira de São Pedro (Sintra)",c:"Sintra",d:"Lisboa",t:"mensal",f:{freq:"mensal-ordinal",ordinais:[2,4],dia:0},l:"Largo D. Fernando II, S. Pedro de Sintra",nt:"2.º e 4.º domingo de cada mês.",lat:38.785,lng:-9.378},
+{n:"Feira de Monte Abraão",c:"Sintra",d:"Lisboa",t:"semanal",f:{freq:"semanal",dias:[6]},l:"R. Cidade Desportiva (parque EMES)",nt:"Sábados, 8h–16h, mais de 300 feirantes.",lat:38.755,lng:-9.297},
+{n:"Feira da Malveira",c:"Mafra",d:"Lisboa",t:"semanal",f:{freq:"semanal",dias:[4]},l:"Recinto da feira, Malveira",lat:38.926,lng:-9.257},
+// ---- Setúbal ----
+{n:"Mercado do Livramento",c:"Setúbal",d:"Setúbal",t:"diario",f:{freq:"diario"},l:"Av. Luísa Todi, Setúbal",nt:"Terça a domingo de manhã — considerado um dos melhores mercados de peixe do mundo.",lat:38.525,lng:-8.890},
+{n:"Mercado de Azeitão",c:"Setúbal",d:"Setúbal",t:"mensal",f:{freq:"mensal-ordinal",ordinais:[1],dia:0},l:"Vila Nogueira de Azeitão",nt:"1.º domingo de cada mês.",lat:38.519,lng:-9.014},
+{n:"Mercado Mensal do Cercal do Alentejo",c:"Santiago do Cacém",d:"Setúbal",t:"mensal",f:{freq:"mensal-ordinal",ordinais:[1],dia:6},l:"Cercal do Alentejo",lat:37.803,lng:-8.673},
+// ---- Alentejo ----
+{n:"Mercado Tradicional de Estremoz",c:"Estremoz",d:"Évora",t:"semanal",f:{freq:"semanal",dias:[6]},l:"Rossio Marquês de Pombal",nt:"Sábados de manhã — produtos frescos diretamente do produtor, e velharias.",lat:38.844,lng:-7.588},
+{n:"Feira de São João (Évora)",c:"Évora",d:"Évora",t:"anual",f:{freq:"anual",mes:"Junho"},l:"Rossio de São Brás",lat:38.567,lng:-7.909},
+// ---- Algarve ----
+{n:"Feira e Mercado de Loulé",c:"Loulé",d:"Faro",t:"semanal",f:{freq:"semanal",dias:[6]},l:"Mercado de Loulé e envolvente",nt:"Sábados de manhã — mercado municipal e feira de rua.",lat:37.138,lng:-8.020},
+{n:"Feira de Quarteira",c:"Loulé",d:"Faro",t:"semanal",f:{freq:"semanal",dias:[3]},l:"Recinto da feira, Quarteira",lat:37.069,lng:-8.103},
+{n:"Mercados de Olhão",c:"Olhão",d:"Faro",t:"diario",f:{freq:"diario"},l:"Av. 5 de Outubro (edifícios do mercado)",nt:"Peixe e hortícolas, segunda a sábado — o sábado é o dia grande.",lat:37.026,lng:-7.841},
+{n:"Feira de São Brás de Alportel",c:"S. Brás de Alportel",d:"Faro",t:"semanal",f:{freq:"semanal",dias:[6]},l:"Centro da vila",lat:37.152,lng:-7.887},
+{n:"Feira Mensal de Lagos",c:"Lagos",d:"Faro",t:"mensal",f:{freq:"mensal-ordinal",ordinais:[1],dia:6},l:"Parque de estacionamento do estádio",nt:"1.º sábado de cada mês.",lat:37.102,lng:-8.673},
+{n:"Feira Mensal de Portimão",c:"Portimão",d:"Faro",t:"mensal",f:{freq:"mensal-ordinal",ordinais:[1],dia:1},l:"Parque de feiras e exposições",nt:"1.ª segunda-feira de cada mês.",lat:37.136,lng:-8.538},
+{n:"Feira Mensal de Silves",c:"Silves",d:"Faro",t:"mensal",f:{freq:"mensal-ordinal",ordinais:[3],dia:1},l:"Junto ao mercado / FISSUL",nt:"3.ª segunda-feira de cada mês.",lat:37.189,lng:-8.438},
+{n:"Feira Mensal de Albufeira",c:"Albufeira",d:"Faro",t:"mensal",f:{freq:"mensal-ordinal",ordinais:[1,3],dia:2},l:"Caliços, Albufeira",nt:"1.ª e 3.ª terça-feira de cada mês.",lat:37.089,lng:-8.250},
+// ---- Madeira / Açores ----
+{n:"Mercado dos Lavradores",c:"Funchal",d:"Madeira",t:"diario",f:{freq:"diario"},l:"R. Latino Coelho, Funchal",nt:"Segunda a sábado — a sexta-feira é o dia mais animado.",lat:32.649,lng:-16.906},
+{n:"Mercado Agrícola do Santo da Serra",c:"Machico",d:"Madeira",t:"semanal",f:{freq:"semanal",dias:[0]},l:"Santo António da Serra",nt:"Domingos de manhã.",lat:32.727,lng:-16.821},
+{n:"Mercado da Graça",c:"Ponta Delgada",d:"Açores",t:"diario",f:{freq:"diario"},l:"R. do Mercado, Ponta Delgada",nt:"Segunda a sábado.",lat:37.742,lng:-25.667},
+{n:"Mercado Duque de Bragança",c:"Angra do Heroísmo",d:"Açores",t:"diario",f:{freq:"diario"},l:"R. de São João, Angra do Heroísmo",nt:"Segunda a sábado.",lat:38.655,lng:-27.218}
+];
+BASE.forEach((f,i)=>f.id="b"+i);
+
+const DISTRITOS=["Aveiro","Beja","Braga","Bragança","Castelo Branco","Coimbra","Évora","Faro","Guarda","Leiria","Lisboa","Portalegre","Porto","Santarém","Setúbal","Viana do Castelo","Vila Real","Viseu","Madeira","Açores"];
+const DIAS=["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
+const DIAS_C=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+const ORD={1:"1.º",2:"2.º",3:"3.º",4:"4.º","-1":"último"};
+const CORES={semanal:"#2A6B4F",mensal:"#E8891C",diario:"#2F6690",velharias:"#7B4B94",anual:"#8a8674"};
+const TIPOS_TXT={semanal:"Feira semanal",mensal:"Mensal",diario:"Mercado diário",velharias:"Velharias",anual:"Feira anual"};
+const LS_KEY="feirasPT_v1";
+
+/* ---------- Persistência ---------- */
+let store={custom:[],overrides:{},hidden:[]};
+try{const s=localStorage.getItem(LS_KEY); if(s) store=Object.assign(store,JSON.parse(s));}catch(e){}
+function saveStore(){try{localStorage.setItem(LS_KEY,JSON.stringify(store));}catch(e){alert("Não foi possível guardar (localStorage indisponível).");}}
+
+function allFeiras(){
+  const base=BASE.filter(f=>!store.hidden.includes(f.id)).map(f=>store.overrides[f.id]?Object.assign({},f,store.overrides[f.id]):f);
+  return base.concat(store.custom);
+}
+
+/* ---------- Lógica de datas ---------- */
+function ordinalDoMes(dt){return Math.ceil(dt.getDate()/7);}
+function eUltimo(dt){const d=new Date(dt.getFullYear(),dt.getMonth()+1,0).getDate();return dt.getDate()+7>d;}
+function ocorreEm(f,dt){
+  const q=f.f||{}, wd=dt.getDay(), dm=dt.getDate();
+  switch(q.freq){
+    case "diario": return true;
+    case "semanal": case "quinzenal": return (q.dias||[]).includes(wd);
+    case "mensal-ordinal":
+      if(q.dia!==wd) return false;
+      const o=ordinalDoMes(dt);
+      return (q.ordinais||[]).some(x=>x===-1?eUltimo(dt):x===o);
+    case "mensal-data": return (q.datas||[]).includes(dm);
+    default: return false;
+  }
+}
+function textoQuando(f){
+  const q=f.f||{};
+  switch(q.freq){
+    case "diario": return "Diariamente";
+    case "semanal": return "Toda(s) a(s) "+(q.dias||[]).map(d=>DIAS[d]).join(" e ");
+    case "quinzenal": return "Quinzenalmente à "+(q.dias||[]).map(d=>DIAS[d]).join(" e ");
+    case "mensal-ordinal": return (q.ordinais||[]).map(o=>ORD[o]).join(" e ")+" "+DIAS[q.dia]+" do mês";
+    case "mensal-data": return "Dia"+((q.datas||[]).length>1?"s":"")+" "+(q.datas||[]).join(", ")+" de cada mês";
+    case "anual": return "Anual — "+(q.mes||"");
+    default: return "";
+  }
+}
+
+/* ---------- Estado dos filtros ---------- */
+const F={busca:"",distrito:"",tipo:"",quando:"",dias:new Set()};
+const hoje=new Date(); hoje.setHours(0,0,0,0);
+const amanha=new Date(hoje); amanha.setDate(hoje.getDate()+1);
+function proximoFDS(){
+  const s=new Date(hoje), dow=hoje.getDay();
+  s.setDate(hoje.getDate()+((6-dow+7)%7)); // próximo sábado (ou hoje se sábado)
+  const d=new Date(s); d.setDate(s.getDate()+1);
+  if(dow===0){ d.setTime(hoje.getTime()); s.setDate(hoje.getDate()+6);} // se hoje é domingo
+  return [s,d];
+}
+function passaFiltros(f){
+  if(F.busca){const t=(f.n+" "+f.c+" "+f.d+" "+(f.l||"")+" "+(f.nt||"")).toLowerCase(); if(!t.includes(F.busca)) return false;}
+  if(F.distrito && f.d!==F.distrito) return false;
+  if(F.tipo && f.t!==F.tipo) return false;
+  if(F.dias.size){const q=f.f||{}; const ds=q.freq==="mensal-ordinal"?[q.dia]:(q.dias||[]); if(q.freq==="diario"){/*passa*/} else if(![...F.dias].some(d=>ds.includes(d))) return false;}
+  if(F.quando==="hoje" && !ocorreEm(f,hoje)) return false;
+  if(F.quando==="amanha" && !ocorreEm(f,amanha)) return false;
+  if(F.quando==="fds"){const [s,d]=proximoFDS(); if(!ocorreEm(f,s)&&!ocorreEm(f,d)) return false;}
+  return true;
+}
+
+/* ---------- Mapa ---------- */
+const map=L.map("mapa",{zoomControl:true}).setView([39.6,-8.0],7);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
+  attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19}).addTo(map);
+let markers={};
+let picking=false;
+
+map.on("click",e=>{
+  if(!picking) return;
+  document.getElementById("mLat").value=e.latlng.lat.toFixed(5);
+  document.getElementById("mLng").value=e.latlng.lng.toFixed(5);
+  picking=false; document.body.classList.remove("picking");
+  document.getElementById("ovForm").classList.add("open");
+});
+
+/* ---------- Render ---------- */
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
+function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
+let selId=null;
+
+function cardHTML(f){
+  const isHoje=ocorreEm(f,hoje), isAm=!isHoje&&ocorreEm(f,amanha);
+  const badge=isHoje?'<span class="badge hoje">HOJE</span>':(isAm?'<span class="badge amanha">AMANHÃ</span>':"");
+  const custom=String(f.id).startsWith("c");
+  return '<div class="card'+(f.id===selId?" sel":"")+'" data-id="'+f.id+'">'+badge+
+    '<h3><span class="dot" style="background:'+CORES[f.t]+'"></span>'+esc(f.n)+'</h3>'+
+    '<div class="sub">'+esc(f.c)+' · '+esc(f.d)+' · '+TIPOS_TXT[f.t]+'</div>'+
+    '<div class="quando">'+esc(textoQuando(f))+'</div>'+
+    (f.l?'<div class="local">📍 '+esc(f.l)+'</div>':"")+
+    (f.nt?'<div class="notas">'+esc(f.nt)+'</div>':"")+
+    '<div class="acts"><button data-act="edit">Editar</button><button data-act="del">'+(custom?"Apagar":"Ocultar")+'</button></div>'+
+  '</div>';
+}
+
+function handleCardClick(e){
+  const card=e.target.closest(".card"); if(!card) return;
+  const id=card.dataset.id;
+  const act=e.target.dataset.act;
+  if(act==="edit"){abrirForm(id);return;}
+  if(act==="del"){
+    if(String(id).startsWith("c")){
+      if(confirm("Apagar esta entrada?")) store.custom=store.custom.filter(f=>f.id!==id);
+    }else{
+      if(confirm("Ocultar esta feira da lista? (pode repor limpando os dados do site)")) store.hidden.push(id);
+    }
+    saveStore();renderAll();return;
+  }
+  selId=id;
+  const f=allFeiras().find(x=>x.id===id);
+  if(f&&f.lat!=null&&f.lat!==""){
+    setMode("feiras");
+    render();
+    map.setView([+f.lat,+f.lng],12);
+    if(markers[id]) markers[id].openPopup();
+    if(window.innerWidth<=760){setView("mapa");}
+  }else{
+    render();
+  }
+}
+
+function render(){
+  const list=allFeiras().filter(passaFiltros);
+  // ordena: hoje primeiro, depois por distrito/nome
+  list.sort((a,b)=>{
+    const ha=ocorreEm(a,hoje)?0:1, hb=ocorreEm(b,hoje)?0:1;
+    if(ha!==hb) return ha-hb;
+    return (a.d+a.n).localeCompare(b.d+b.n,"pt");
+  });
+
+  // contagem cabeçalho
+  const total=allFeiras(), nHoje=total.filter(f=>ocorreEm(f,hoje)).length;
+  document.getElementById("hdHoje").innerHTML="Hoje, "+esc(DIAS[hoje.getDay()])+", há feira ou mercado em <b>"+nHoje+"</b> locais registados.";
+  document.getElementById("contagem").textContent=list.length+" resultado"+(list.length===1?"":"s");
+
+  // cartões
+  const wrap=document.getElementById("cards");
+  if(!list.length){
+    wrap.innerHTML='<div class="vazio"><b>Sem resultados</b>Ajuste os filtros ou adicione uma feira com o botão “+ Adicionar”.</div>';
+  }else{
+    wrap.innerHTML=list.map(cardHTML).join("");
+  }
+
+  // marcadores
+  Object.values(markers).forEach(m=>map.removeLayer(m)); markers={};
+  list.forEach(f=>{
+    if(f.lat==null||f.lng==null||f.lat==="") return;
+    const m=L.circleMarker([+f.lat,+f.lng],{radius:8,color:"#fff",weight:2,fillColor:CORES[f.t],fillOpacity:.95});
+    m.bindPopup("<b>"+esc(f.n)+"</b><br>"+esc(f.c)+" · "+esc(f.d)+"<br><b style='color:"+CORES[f.t]+"'>"+esc(textoQuando(f))+"</b>"+(f.l?"<br>📍 "+esc(f.l):""));
+    m.on("click",()=>{selId=f.id;render();const el=document.querySelector('.card[data-id="'+f.id+'"]');if(el)el.scrollIntoView({block:"center"});m.openPopup();});
+    m.addTo(map); markers[f.id]=m;
+  });
+}
+
+/* ---------- Calendário ---------- */
+let calYear=hoje.getFullYear(), calMonth=hoje.getMonth(), calSelDate=new Date(hoje);
+function mesmoData(a,b){return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
+function passaFiltrosCal(f){
+  if(F.busca){const t=(f.n+" "+f.c+" "+f.d+" "+(f.l||"")+" "+(f.nt||"")).toLowerCase(); if(!t.includes(F.busca)) return false;}
+  if(F.distrito && f.d!==F.distrito) return false;
+  if(F.tipo && f.t!==F.tipo) return false;
+  if(F.dias.size){const q=f.f||{}; const ds=q.freq==="mensal-ordinal"?[q.dia]:(q.dias||[]); if(q.freq!=="diario" && ![...F.dias].some(d=>ds.includes(d))) return false;}
+  return true;
+}
+function renderCalendario(){
+  const first=new Date(calYear,calMonth,1);
+  const offset=(first.getDay()+6)%7; // 0=Seg
+  const start=new Date(first); start.setDate(1-offset);
+
+  document.getElementById("calTitulo").textContent=cap(first.toLocaleDateString("pt-PT",{month:"long",year:"numeric"}));
+
+  let html="";
+  for(let i=0;i<42;i++){
+    const dt=new Date(start); dt.setDate(start.getDate()+i);
+    const inMonth=dt.getMonth()===calMonth;
+    const list=allFeiras().filter(f=>passaFiltrosCal(f)&&ocorreEm(f,dt));
+    const dots=list.slice(0,4).map(f=>'<span class="cal-dot" style="background:'+CORES[f.t]+'"></span>').join("")+
+      (list.length>4?'<span class="cal-more">+'+(list.length-4)+'</span>':"");
+    html+='<div class="cal-day'+(inMonth?"":" out")+(mesmoData(dt,hoje)?" today":"")+(mesmoData(dt,calSelDate)?" sel":"")+'" data-date="'+dt.getFullYear()+"-"+(dt.getMonth()+1)+"-"+dt.getDate()+'">'+
+      '<span class="cal-num">'+dt.getDate()+'</span><div class="cal-dots">'+dots+'</div></div>';
+  }
+  document.getElementById("calGrid").innerHTML=html;
+  renderCalDetalhe();
+}
+function renderCalDetalhe(){
+  const list=allFeiras().filter(f=>passaFiltrosCal(f)&&ocorreEm(f,calSelDate))
+    .sort((a,b)=>(a.d+a.n).localeCompare(b.d+b.n,"pt"));
+  const titulo=cap(calSelDate.toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long"}));
+  let html='<div class="cal-detalhe-head">'+esc(titulo)+' · '+list.length+' feira'+(list.length===1?"":"s")+'</div>';
+  html+= list.length? list.map(cardHTML).join("") :
+    '<div class="vazio"><b>Sem feiras registadas</b>Experimente outro dia ou ajuste os filtros.</div>';
+  document.getElementById("calDetalhe").innerHTML=html;
+}
+document.getElementById("calGrid").addEventListener("click",e=>{
+  const cell=e.target.closest(".cal-day"); if(!cell) return;
+  const [y,m,d]=cell.dataset.date.split("-").map(Number);
+  calSelDate=new Date(y,m-1,d);
+  renderCalendario();
+});
+document.getElementById("calDetalhe").addEventListener("click",handleCardClick);
+document.getElementById("calPrev").addEventListener("click",()=>{calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendario();});
+document.getElementById("calNext").addEventListener("click",()=>{calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendario();});
+document.getElementById("calHoje").addEventListener("click",()=>{calYear=hoje.getFullYear();calMonth=hoje.getMonth();calSelDate=new Date(hoje);renderCalendario();});
+
+function renderAll(){render();renderCalendario();}
+
+/* ---------- Abas principais ---------- */
+function setMode(m){
+  document.body.classList.toggle("mode-calendario",m==="calendario");
+  document.getElementById("tabFeiras").classList.toggle("on",m==="feiras");
+  document.getElementById("tabCal").classList.toggle("on",m==="calendario");
+  if(m==="feiras") setTimeout(()=>map.invalidateSize(),60);
+}
+document.getElementById("tabFeiras").addEventListener("click",()=>setMode("feiras"));
+document.getElementById("tabCal").addEventListener("click",()=>setMode("calendario"));
+
+/* ---------- Interações da lista ---------- */
+document.getElementById("cards").addEventListener("click",handleCardClick);
+
+/* ---------- Filtros ---------- */
+document.getElementById("fBusca").addEventListener("input",e=>{F.busca=e.target.value.trim().toLowerCase();renderAll();});
+const selD=document.getElementById("fDistrito");
+DISTRITOS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d;selD.appendChild(o);});
+selD.addEventListener("change",e=>{F.distrito=e.target.value;renderAll();});
+document.getElementById("fTipo").addEventListener("change",e=>{F.tipo=e.target.value;renderAll();});
+document.getElementById("chipsQuando").addEventListener("click",e=>{
+  const b=e.target.closest(".chip"); if(!b) return;
+  const q=b.dataset.q;
+  F.quando=(F.quando===q)?"":q;
+  document.querySelectorAll("#chipsQuando .chip").forEach(c=>c.classList.toggle("on",c.dataset.q===F.quando));
+  render();
+});
+document.getElementById("chipsDias").addEventListener("click",e=>{
+  const b=e.target.closest(".chip"); if(!b) return;
+  const d=+b.dataset.d;
+  if(F.dias.has(d)){F.dias.delete(d);b.classList.remove("on");}else{F.dias.add(d);b.classList.add("on");}
+  renderAll();
+});
+document.getElementById("btnLimpar").addEventListener("click",()=>{
+  F.busca="";F.distrito="";F.tipo="";F.quando="";F.dias.clear();
+  document.getElementById("fBusca").value="";selD.value="";document.getElementById("fTipo").value="";
+  document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
+  renderAll();
+});
+
+/* ---------- Formulário ---------- */
+const ov=document.getElementById("ovForm");
+let editId=null;
+const selMD=document.getElementById("mDistrito");
+DISTRITOS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d;selMD.appendChild(o);});
+
+function mostrarGrupos(){
+  const fr=document.getElementById("mFreq").value;
+  document.getElementById("gDias").style.display=(fr==="semanal"||fr==="quinzenal")?"":"none";
+  document.getElementById("gOrdinal").style.display=(fr==="mensal-ordinal")?"":"none";
+  document.getElementById("gDatas").style.display=(fr==="mensal-data")?"":"none";
+  document.getElementById("gMes").style.display=(fr==="anual")?"":"none";
+}
+document.getElementById("mFreq").addEventListener("change",mostrarGrupos);
+
+function abrirForm(id){
+  editId=id||null;
+  document.getElementById("mTitulo").textContent=editId?"Editar feira ou mercado":"Adicionar feira ou mercado";
+  const f=editId?allFeiras().find(x=>x.id===editId):null;
+  document.getElementById("mNome").value=f?f.n:"";
+  document.getElementById("mConcelho").value=f?f.c:"";
+  selMD.value=f?f.d:"Lisboa";
+  document.getElementById("mTipo").value=f?f.t:"semanal";
+  document.getElementById("mFreq").value=f?(f.f||{}).freq||"semanal":"semanal";
+  document.querySelectorAll("#mDias input").forEach(cb=>cb.checked=f&&(f.f.dias||[]).includes(+cb.value));
+  document.querySelectorAll("#mOrdinais input").forEach(cb=>cb.checked=f&&(f.f.ordinais||[]).includes(+cb.value));
+  document.getElementById("mOrdDia").value=f&&f.f.dia!=null?f.f.dia:6;
+  document.getElementById("mDatas").value=f&&f.f.datas?f.f.datas.join(", "):"";
+  document.getElementById("mMes").value=f&&f.f.mes?f.f.mes:"";
+  document.getElementById("mLocal").value=f?(f.l||""):"";
+  document.getElementById("mNotas").value=f?(f.nt||""):"";
+  document.getElementById("mLat").value=f&&f.lat!=null?f.lat:"";
+  document.getElementById("mLng").value=f&&f.lng!=null?f.lng:"";
+  mostrarGrupos();
+  ov.classList.add("open");
+}
+document.getElementById("btnAdd").addEventListener("click",()=>abrirForm(null));
+document.getElementById("mCancel").addEventListener("click",()=>{ov.classList.remove("open");picking=false;document.body.classList.remove("picking");});
+ov.addEventListener("click",e=>{if(e.target===ov){ov.classList.remove("open");}});
+
+document.getElementById("btnPick").addEventListener("click",()=>{
+  picking=true;document.body.classList.add("picking");
+  ov.classList.remove("open");
+  if(window.innerWidth<=760) setView("mapa");
+  alert("Clique no mapa no local da feira. O formulário volta a abrir com as coordenadas preenchidas.");
+});
+
+document.getElementById("mSave").addEventListener("click",()=>{
+  const n=document.getElementById("mNome").value.trim();
+  const c=document.getElementById("mConcelho").value.trim();
+  if(!n||!c){alert("Preencha o nome e o concelho.");return;}
+  const fr=document.getElementById("mFreq").value;
+  const fq={freq:fr};
+  if(fr==="semanal"||fr==="quinzenal"){
+    fq.dias=[...document.querySelectorAll("#mDias input:checked")].map(cb=>+cb.value);
+    if(!fq.dias.length){alert("Escolha pelo menos um dia da semana.");return;}
+  }else if(fr==="mensal-ordinal"){
+    fq.ordinais=[...document.querySelectorAll("#mOrdinais input:checked")].map(cb=>+cb.value);
+    fq.dia=+document.getElementById("mOrdDia").value;
+    if(!fq.ordinais.length){alert("Escolha pelo menos uma ocorrência (1.º, 2.º…).");return;}
+  }else if(fr==="mensal-data"){
+    fq.datas=document.getElementById("mDatas").value.split(",").map(s=>+s.trim()).filter(x=>x>=1&&x<=31);
+    if(!fq.datas.length){alert("Indique pelo menos um dia do mês (1–31).");return;}
+  }else if(fr==="anual"){
+    fq.mes=document.getElementById("mMes").value.trim();
+  }
+  const latV=document.getElementById("mLat").value, lngV=document.getElementById("mLng").value;
+  const obj={n:n,c:c,d:selMD.value,t:document.getElementById("mTipo").value,f:fq,
+    l:document.getElementById("mLocal").value.trim(),nt:document.getElementById("mNotas").value.trim(),
+    lat:latV===""?null:+latV,lng:lngV===""?null:+lngV};
+  if(editId){
+    if(String(editId).startsWith("c")){
+      const i=store.custom.findIndex(x=>x.id===editId);
+      store.custom[i]=Object.assign({id:editId},obj);
+    }else{
+      store.overrides[editId]=obj;
+    }
+  }else{
+    obj.id="c"+Date.now();
+    store.custom.push(obj);
+  }
+  saveStore();
+  ov.classList.remove("open");
+  selId=editId||obj.id;
+  renderAll();
+});
+
+/* ---------- Vistas mobile ---------- */
+function setView(v){
+  document.body.classList.toggle("v-lista",v==="lista");
+  document.body.classList.toggle("v-mapa",v==="mapa");
+  document.getElementById("tabLista").classList.toggle("on",v==="lista");
+  document.getElementById("tabMapa").classList.toggle("on",v==="mapa");
+  if(v==="mapa") setTimeout(()=>map.invalidateSize(),60);
+}
+document.getElementById("tabLista").addEventListener("click",()=>setView("lista"));
+document.getElementById("tabMapa").addEventListener("click",()=>setView("mapa"));
+if(window.innerWidth>760){document.body.classList.remove("v-lista","v-mapa");}
+
+/* ---------- Cabeçalho ---------- */
+document.getElementById("hdDate").textContent=hoje.toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+
+renderAll();
+setTimeout(()=>map.invalidateSize(),150);
+</script>
+</body>
+</html>
